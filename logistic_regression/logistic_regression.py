@@ -9,14 +9,14 @@ from sklearn.preprocessing import StandardScaler
 
 
 class MyLogisticRegression():
-    def __init__(self):
+    def __init__(self, l1_weight=0, l2_weight=0):
         self.W = None
         self.b = None
         self.loss = []
         self.iters = 0
-        self.l1_weight = 0 # Lasso
-        self.l2_weight = 0 # Ridge
-    
+        self.l1_weight = l1_weight  # Lasso
+        self.l2_weight = l2_weight  # Ridge
+        
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
@@ -29,25 +29,25 @@ class MyLogisticRegression():
 
     def __predict(self, X, W, b, thresh):
         pred = lambda x: x >= thresh
-        return self.__predict_proba(X, W, b).astype(int)
+        return pred(self.__predict_proba(X, W, b)).astype(int)
     
     def predict(self, X, thresh=0.5):
         return self.__predict(X, self.W, self.b, thresh)
         
     def cost_f(self, X, y_true, y_pred):
-        return np.mean(
-            -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
-        ) + \
-        self.l1_weight * np.sum(np.sign(self.W)) +\
-        self.l2_weight * np.sum(self.W ** 2)
-
-    def dw_df(self, X, y_true, y_pred, m_samples):
-        return (1 / m_samples) * (
-            (X.T.dot(y_pred - y_true)) +\
-            self.l1_weight * np.sign(self.W) +\
-            2 * self.l2_weight * self.W
+        return (
+            np.mean(-y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)) + 
+            self.l1_weight * np.sum(np.abs(self.W)) +
+            self.l2_weight * np.sum(self.W ** 2)
         )
 
+    def dw_df(self, X, y_true, y_pred, m_samples):
+        return (
+            (1 / m_samples) * (X.T.dot(y_pred - y_true)) +
+            (1 / m_samples) * self.l1_weight * np.sign(self.W) +
+            (1 / m_samples) * 2 * self.l2_weight * self.W
+        )
+        
     def db_df(self, X, y_true, y_pred):
         return np.mean((y_pred - y_true))
 
@@ -63,15 +63,11 @@ class MyLogisticRegression():
         self,
         X,
         y,
-        iters=100,
+        iters=20000,
         lr=0.01,
-        l1_weight=0,
-        l2_weight=0
     ):
         assert X.shape[0] == y.shape[0]
         self.iters = iters
-        self.l1_weight = l1_weight
-        self.l2_weight = l2_weight
         m_samples, n_features = X.shape
         self.W = np.zeros(n_features)
         self.b = 0
@@ -109,23 +105,23 @@ def framingham_dataset():
     return X_train, X_test, y_train, y_test
 
 def sklearn_datset():
-    X, y = make_classification(n_features=10, n_informative=5, n_redundant=5, n_samples=1000, random_state=34)
+    X, y = make_classification(n_features=10, n_informative=5, n_redundant=5, n_samples=5000, random_state=34)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=78)
     return X_train, X_test, y_train, y_test
 
 
 if __name__ == '__main__':
-    X_train, X_test, y_train, y_test = sklearn_datset()
+    X_train, X_test, y_train, y_test = framingham_dataset()
     my_clf = MyLogisticRegression().fit(X_train, y_train)
     print(my_clf.W)
     print(my_clf.b)
-    my_clf_l1 = MyLogisticRegression().fit(X_train, y_train, l1_weight=1)
+    my_clf_l1 = MyLogisticRegression(l1_weight=0.1).fit(X_train, y_train)
     print(my_clf_l1.W)
     print(my_clf_l1.b)
-    my_clf_l2 = MyLogisticRegression().fit(X_train, y_train, l2_weight=1)
+    my_clf_l2 = MyLogisticRegression(l2_weight=0.1).fit(X_train, y_train)
     print(my_clf_l2.W)
     print(my_clf_l2.b)
-    my_clf_l1_l2 = MyLogisticRegression().fit(X_train, y_train, l1_weight=1, l2_weight=1)
+    my_clf_l1_l2 = MyLogisticRegression(l1_weight=0.1, l2_weight=0.5).fit(X_train, y_train)
     print(my_clf_l1_l2.W)
     print(my_clf_l1_l2.b)
     my_clf.plot_loss(label="Base")
